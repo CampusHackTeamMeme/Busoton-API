@@ -7,12 +7,12 @@ class BusStops(Resource):
         self.DBfile = file
 
         self.getParser = reqparse.RequestParser(bundle_errors=True)
-        self.getParser.add_argument('startLon', type=float, required=True, location='form')
-        self.getParser.add_argument('endLon', type=float, required=True, location='form')
-        self.getParser.add_argument('startLat', type=float, required=True, location='form')
-        self.getParser.add_argument('endLat', type=float, required=True, location='form')
+        self.getParser.add_argument('startLon', type=float, required=True)
+        self.getParser.add_argument('endLon', type=float, required=True)
+        self.getParser.add_argument('startLat', type=float, required=True)
+        self.getParser.add_argument('endLat', type=float, required=True)
 
-    def get(self):
+    def post(self):
         r = self.getParser.parse_args()
 
         conn = sql.connect(self.DBfile)
