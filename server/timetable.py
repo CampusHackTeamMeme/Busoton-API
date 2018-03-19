@@ -72,6 +72,4 @@ class TimeTable(Resource):
             data[bus_service].setdefault("destination", bus_dest)
             data[bus_service].setdefault("operator", bus_operator)
 
-        to_send[r['stop']] = data
-
-        return to_send, 200
+        return data, 200
