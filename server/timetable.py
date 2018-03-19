@@ -50,8 +50,6 @@ class TimeTable(Resource):
 
             bus_operator = query.fetchone()[0]
 
-            bus_service = bus_operator + bus_service
-
             bus_return = re.search(bus_regex, cells[1].text)
             if bus_return is not None:
                 bus_dest = bus_return.group('dest')
