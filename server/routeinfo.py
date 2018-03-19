@@ -7,12 +7,13 @@ class RouteInfo(Resource):
         self.DBfile = file
 
         self.getParser = reqparse.RequestParser(bundle_errors=True)
-        self.getParser.add_argument('stop', required=True, location='form')
+        self.getParser.add_argument('stop', required=True)
 
-    def get(self):
+    def post(self):
         r = self.getParser.parse_args()
 
         conn = sql.connect(self.DBfile)
+        conn.row_factory = lambda c, r: r[0]
         c = conn.cursor()
 
         query = c.execute(
@@ -22,8 +23,6 @@ class RouteInfo(Resource):
             WHERE routes_stops.stop_id = ?
             ''', (r['stop'],))
 
-        data = []
-        for i in query.fetchall():
-            data.append(i[0])
+        data = query.fetchall()
 
         return {'stop': data}, 200
