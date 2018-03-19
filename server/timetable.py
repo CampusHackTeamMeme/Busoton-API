@@ -66,7 +66,7 @@ class TimeTable(Resource):
                     bus_regex = "(?P<dest>.*)\s(?P<time>DUE)\s"
                     bus_return = re.search(bus_regex, cells[1].text, flags=re.IGNORECASE)
                     bus_dest = bus_return.group('dest')
-                    bus_time = datetime.now().strftime("%H:%M")
+                    bus_time = 'Due'
 
             data.setdefault(bus_service, {}).setdefault("time", []).append(bus_time)
             data[bus_service].setdefault("destination", bus_dest)
