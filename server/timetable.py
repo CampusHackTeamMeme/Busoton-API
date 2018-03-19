@@ -3,8 +3,7 @@ import sqlite3
 
 import requests
 from bs4 import BeautifulSoup
-from flask import request
-from flask_restful import Resource
+from flask_restful import Resource, reqparse
 from datetime import datetime, timedelta
 
 BUS_STOP_URL = "http://nextbuses.mobi/WebView/BusStopSearch/BusStopSearchResults?id=%s"
@@ -13,9 +12,13 @@ BUS_STOP_URL = "http://nextbuses.mobi/WebView/BusStopSearch/BusStopSearchResults
 class TimeTable(Resource):
     def __init__(self, file):
         self.DBfile = file
+        
+        self.getParser = reqparse.RequestParser(bundle_errors=True)
+        self.getParser.add_argument('stop', required=True)
 
-    def get(self):
-        r = request.form.to_dict()
+
+    def post(self):
+        r = self.getParser.parse_args()
 
         html = requests.get(BUS_STOP_URL % r['stop'])
         parsed_html = BeautifulSoup(html.text, "lxml")
