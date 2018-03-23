@@ -1,10 +1,10 @@
-import sqlite3 as sql
+from psycopg2.extras import RealDictCursor
 
 from flask_restful import Resource, reqparse
 
 class BusStops(Resource):
-    def __init__(self, file):
-        self.DBfile = file
+    def __init__(self, conn):
+        self.conn = conn
 
         self.getParser = reqparse.RequestParser(bundle_errors=True)
         self.getParser.add_argument('startLon', type=float, required=True)
@@ -15,19 +15,17 @@ class BusStops(Resource):
     def post(self):
         r = self.getParser.parse_args()
 
-        conn = sql.connect(self.DBfile)
-        conn.row_factory = lambda c, r: dict(zip([col[0] for col in c.description], r))
-        c = conn.cursor()
+        c = self.conn.cursor(cursor_factory = RealDictCursor)
 
-        query = c.execute(
+        c.execute(
             '''SELECT stop_id, name, lat, lon FROM stops
-                WHERE lon > ?
-                AND lon < ?
-                AND lat > ?
-                AND lat < ?''',
+                WHERE lon > %s
+                AND lon < %s
+                AND lat > %s
+                AND lat < %s''',
             (r['startLon'], r['endLon'], r['startLat'], r['endLat']))
 
-        data = query.fetchall()
+        data = c.fetchall()
         print('Returned {} bus stops'.format(len(data)))
 
         return {'data': data}, 200
