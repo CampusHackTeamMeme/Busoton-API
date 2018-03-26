@@ -106,3 +106,5 @@ stopImporter/stopImporter
 
 # csv files
 *.csv
+
+travelineAuth\.json

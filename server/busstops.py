@@ -1,10 +1,11 @@
 from psycopg2.extras import RealDictCursor
+import psycopg2
 
 from flask_restful import Resource, reqparse
 
 class BusStops(Resource):
-    def __init__(self, conn):
-        self.conn = conn
+    def __init__(self, SQL):
+        self.login = SQL
 
         self.getParser = reqparse.RequestParser(bundle_errors=True)
         self.getParser.add_argument('startLon', type=float, required=True)
@@ -15,7 +16,8 @@ class BusStops(Resource):
     def post(self):
         r = self.getParser.parse_args()
 
-        c = self.conn.cursor(cursor_factory = RealDictCursor)
+        conn = psycopg2.connect(self.login) 
+        c = conn.cursor(cursor_factory = RealDictCursor)
 
         c.execute(
             '''SELECT stop_id, name, lat, lon FROM stops
@@ -26,6 +28,8 @@ class BusStops(Resource):
             (r['startLon'], r['endLon'], r['startLat'], r['endLat']))
 
         data = c.fetchall()
-        print('Returned {} bus stops'.format(len(data)))
 
+        conn.close()
+
+        print('Returned {} bus stops'.format(len(data)))
         return {'data': data}, 200

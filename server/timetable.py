@@ -1,17 +1,36 @@
-import re
-import sqlite3
-
-import requests
-from bs4 import BeautifulSoup
 from flask_restful import Resource, reqparse
-from datetime import datetime, timedelta
+import requests
+from xml.etree.ElementTree import Element, SubElement, tostring, fromstring
 
-BUS_STOP_URL = "http://nextbuses.mobi/WebView/BusStopSearch/BusStopSearchResults?id=%s"
+from datetime import datetime
+import re
+from random import randint
+
+
+API_URL = 'http://nextbus.mxdata.co.uk/nextbuses/1.0/1'
+
+def generateXML(stop_id):
+    top = Element('Siri', attrib={'version': '1.0', 'xmlns': 'http://www.siri.org.uk/'})
+    ServiceRequest = SubElement(top, 'ServiceRequest')
+    RequestTimestamp = SubElement(ServiceRequest, 'RequestTimestamp')
+    RequestTimestamp.text = datetime.now().isoformat(timespec='seconds') + 'BST'
+    RequestorRef = SubElement(ServiceRequest, 'RequestorRef')
+    RequestorRef.text = 'TravelineAPI465'
+    StopMonitoringRequest = SubElement(ServiceRequest, 'StopMonitoringRequest')
+    RequestTimestamp2 = SubElement(StopMonitoringRequest, 'RequestTimestamp')
+    RequestTimestamp2.text = datetime.now().isoformat(timespec='seconds') + 'BST'
+    MessageIdentifier = SubElement(StopMonitoringRequest, 'MessageIdentifier')
+    MessageIdentifier.text = str(randint(10000, 100000))
+    MonitoringRef = SubElement(StopMonitoringRequest, 'MonitoringRef')
+    MonitoringRef.text = str(stop_id)
+
+    return tostring(top, encoding='UTF-8')
 
 
 class TimeTable(Resource):
-    def __init__(self, file):
-        self.DBfile = file
+    def __init__(self, SQL, auth):
+        self.login = SQL
+        self.travelineAuth = auth
         
         self.getParser = reqparse.RequestParser(bundle_errors=True)
         self.getParser.add_argument('stop', required=True)
@@ -20,54 +39,42 @@ class TimeTable(Resource):
     def post(self):
         r = self.getParser.parse_args()
 
-        html = requests.get(BUS_STOP_URL % r['stop'])
-        parsed_html = BeautifulSoup(html.text, "lxml")
-        bus_stops_table = parsed_html.body.find('table', attrs={'class': 'BusStops'})
+        headers = {'Content-Type': 'text/xml'}
+        data = generateXML(r['stop'])
+        
+        r = requests.post(API_URL, auth=self.auth, headers=headers, data=data)
 
-        to_send = {}
+        if r.status_code is not 200:
+            return {'ERROR': 'Failed fetching timetable'}, 500
 
-        if not bus_stops_table:
-            to_send[r['stop']] = [{'error': "No Bus Times Available"}]
-            return to_send, 200
+        xmlstring = re.sub(' xmlns="[^"]+"', '', r.text, count=1)
+        xml = fromstring(xmlstring)
 
-        bus_stops_rows = bus_stops_table.find_all("tr")
+        toSend = {}
 
-        data = {}
+        for bus in xml.iter('MonitoredVehicleJourney'):
+            bus_service = 'None'
+            bus_operator = 'None'
+            bus_dest = 'None'
+            bus_time = 'None'
+            for child in bus.iter():
+                if child.tag in 'PublishedLineName':
+                    bus_service = child.text
+                elif child.tag in 'OperatorRef':
+                    bus_operator = child.text.strip('_noc_')
+                elif child.tag in 'DirectionName':
+                    bus_dest = child.text
+                elif child.tag in 'AimedDepartureTime':
+                    if bus_time in 'None':
+                        bus_time = child.text
+                elif child.tag in 'ExpectedDepartureTime':
+                    bus_time = child.text
 
-        conn = sqlite3.connect(self.DBfile)
-        c = conn.cursor()
+            if bus_service not in 'None':
+                toSend.setdefault(bus_service, {}).setdefault("time", []).append(bus_time)
+                toSend[bus_service].setdefault("destination", bus_dest)
+                toSend[bus_service].setdefault("operator", bus_operator) 
 
-        for row in bus_stops_rows:
-            cells = row.find_all("td")
-            bus_regex = "(?P<dest>.*)at\s(?P<time>\d\d:\d\d)"
-            bus_service = cells[0].find("a").text
-
-            # Get bus operator
-            query = c.execute('''SELECT routes.operator FROM stops
-            INNER JOIN routes_stops ON stops.stop_id = routes_stops.stop_id
-             INNER JOIN routes ON routes_stops.route_id = routes.route_id
-             WHERE stops.stop_id = ? AND routes.service = ?''', (r['stop'], bus_service))
-
-            bus_operator = query.fetchone()[0]
-
-            bus_return = re.search(bus_regex, cells[1].text)
-            if bus_return is not None:
-                bus_dest = bus_return.group('dest')
-                bus_time = bus_return.group('time')
-            else:
-                bus_regex = "(?P<dest>.*)in\s(?P<time>[0-9]{0,3})\s"
-                bus_return = re.search(bus_regex, cells[1].text)
-                if bus_return is not None:
-                    bus_dest = bus_return.group('dest')
-                    bus_time = (datetime.now() + timedelta(minutes=int(bus_return.group('time')))).strftime("%H:%M")
-                else:
-                    bus_regex = "(?P<dest>.*)\s(?P<time>DUE)\s"
-                    bus_return = re.search(bus_regex, cells[1].text, flags=re.IGNORECASE)
-                    bus_dest = bus_return.group('dest')
-                    bus_time = 'Due'
-
-            data.setdefault(bus_service, {}).setdefault("time", []).append(bus_time)
-            data[bus_service].setdefault("destination", bus_dest)
-            data[bus_service].setdefault("operator", bus_operator)
-
-        return data, 200
+        if len(toSend) == 0:
+            return {'ERROR': "No Bus Times Available"}, 200
+        return toSend, 200
