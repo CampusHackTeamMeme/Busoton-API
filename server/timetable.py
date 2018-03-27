@@ -3,6 +3,7 @@ import requests
 from xml.etree.ElementTree import Element, SubElement, tostring, fromstring
 
 from datetime import datetime
+import dateutil.parser
 import re
 from random import randint
 
@@ -30,7 +31,7 @@ def generateXML(stop_id):
 class TimeTable(Resource):
     def __init__(self, SQL, auth):
         self.login = SQL
-        self.travelineAuth = auth
+        self.auth = auth
         
         self.getParser = reqparse.RequestParser(bundle_errors=True)
         self.getParser.add_argument('stop', required=True)
@@ -66,9 +67,9 @@ class TimeTable(Resource):
                     bus_dest = child.text
                 elif child.tag in 'AimedDepartureTime':
                     if bus_time in 'None':
-                        bus_time = child.text
+                        bus_time = dateutil.parser.parse(child.text).strftime("%H:%M")
                 elif child.tag in 'ExpectedDepartureTime':
-                    bus_time = child.text
+                    bus_time = dateutil.parser.parse(child.text).strftime("%H:%M")
 
             if bus_service not in 'None':
                 toSend.setdefault(bus_service, {}).setdefault("time", []).append(bus_time)
