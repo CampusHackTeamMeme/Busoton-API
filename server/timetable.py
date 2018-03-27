@@ -13,12 +13,12 @@ def generateXML(stop_id):
     top = Element('Siri', attrib={'version': '1.0', 'xmlns': 'http://www.siri.org.uk/'})
     ServiceRequest = SubElement(top, 'ServiceRequest')
     RequestTimestamp = SubElement(ServiceRequest, 'RequestTimestamp')
-    RequestTimestamp.text = datetime.now().isoformat(timespec='seconds') + 'BST'
+    RequestTimestamp.text = datetime.now().isoformat()
     RequestorRef = SubElement(ServiceRequest, 'RequestorRef')
     RequestorRef.text = 'TravelineAPI465'
     StopMonitoringRequest = SubElement(ServiceRequest, 'StopMonitoringRequest')
     RequestTimestamp2 = SubElement(StopMonitoringRequest, 'RequestTimestamp')
-    RequestTimestamp2.text = datetime.now().isoformat(timespec='seconds') + 'BST'
+    RequestTimestamp2.text = datetime.now().isoformat()
     MessageIdentifier = SubElement(StopMonitoringRequest, 'MessageIdentifier')
     MessageIdentifier.text = str(randint(10000, 100000))
     MonitoringRef = SubElement(StopMonitoringRequest, 'MonitoringRef')
